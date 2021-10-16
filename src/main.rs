@@ -7,7 +7,7 @@ mod parser;
 async fn main() {
     println!("Hello async world!");
 
-    let input = futures::stream::iter("hello,world,".to_owned().into_bytes());
+    let input = futures::stream::iter("hello,world,incomple".to_owned().into_bytes());
     let mut stream = CsvParser::new(input);
     while let Some(item) = stream.next().await {
         println!("Received: {:?}", item);

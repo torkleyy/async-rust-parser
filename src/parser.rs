@@ -43,33 +43,31 @@ where
     type Item = Result<String, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Probably reinventing the wheel here... but where do I get a wheel?
-        if let Some(result) = self.try_parse_next() {
-            return Poll::Ready(Some(result));
-        }
+        // not eof
+        let mut pending = true;
 
-        while let Poll::Ready(x) = Pin::new(&mut self.stream).poll_next(cx) {
-            if let Some(byte) = x {
-                self.buffer.push(byte);
-            } else {
-                if let Some(result) = self.try_parse_next() {
-                    return Poll::Ready(Some(result));
+        loop {
+            match Pin::new(&mut self.stream).poll_next(cx) {
+                Poll::Ready(Some(byte)) => {
+                    self.buffer.push(byte);
                 }
-
-                return if self.buffer.is_empty() {
-                    Poll::Ready(None)
-                } else {
-                    self.buffer.clear();
-
-                    Poll::Ready(Some(Err(Error::UnexpectedEof)))
-                }
+                Poll::Pending => break,
+                Poll::Ready(None) => {
+                    pending = false;
+                    break;
+                },
             }
         }
 
         if let Some(result) = self.try_parse_next() {
             return Poll::Ready(Some(result));
+        } else if pending {
+            Poll::Pending
+        } else if self.buffer.is_empty() {
+            Poll::Ready(None)
+        } else {
+            self.buffer.clear();
+            Poll::Ready(Some(Err(Error::UnexpectedEof)))
         }
-
-        Poll::Pending
     }
 }
